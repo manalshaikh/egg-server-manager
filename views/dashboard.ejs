@@ -1,0 +1,48 @@
+<%- include('partials/header') %>
+
+<h2 class="mb-4">Server Dashboard</h2>
+
+<div class="row" id="server-list">
+    <% if (servers.length === 0) { %>
+        <div class="col-12">
+            <div class="alert alert-info">No servers found.</div>
+        </div>
+    <% } else { %>
+        <% servers.forEach(server => { %>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 bg-secondary text-white server-card" data-id="<%= server.id %>">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0"><%= server.name %></h5>
+                        <span class="badge bg-dark"><%= server.id %></span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Status:</strong> 
+                            <span class="server-status badge 
+                                <%= server.state === 'running' ? 'bg-success' : 
+                                   server.state === 'offline' ? 'bg-danger' : 
+                                   server.state === 'starting' ? 'bg-warning' : 'bg-info' %>">
+                                <%= server.state %>
+                            </span>
+                        </p>
+                        <p class="card-text"><small>UUID: <%= server.uuid.substring(0, 8) %>...</small></p>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-action" data-action="start" <%= server.state === 'running' ? 'disabled' : '' %>>
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                            <button class="btn btn-danger btn-action" data-action="stop" <%= server.state === 'offline' ? 'disabled' : '' %>>
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <button class="btn btn-warning btn-action" data-action="restart">
+                                <i class="fas fa-redo"></i> Restart
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <% }); %>
+    <% } %>
+</div>
+
+<%- include('partials/footer') %>
