@@ -127,13 +127,36 @@ app.post('/api/server/:id/power', isAuthenticated, async (req, res) => {
 
 app.get('/profile', isAuthenticated, async (req, res) => {
     const user = await User.findByPk(req.session.userId);
-    res.render('profile', { user });
+    res.render('profile', { user, error: null, success: null });
 });
 
 app.post('/profile', isAuthenticated, async (req, res) => {
     const { ptero_url, ptero_api_key } = req.body;
     await User.update({ ptero_url, ptero_api_key }, { where: { id: req.session.userId } });
-    res.redirect('/dashboard');
+    const user = await User.findByPk(req.session.userId);
+    res.render('profile', { user, error: null, success: 'Profile updated successfully.' });
+});
+
+app.post('/profile/password', isAuthenticated, async (req, res) => {
+    const { current_password, new_password, confirm_password } = req.body;
+    const user = await User.findByPk(req.session.userId);
+
+    if (!await bcrypt.compare(current_password, user.password)) {
+        return res.render('profile', { user, error: 'Incorrect current password.', success: null });
+    }
+
+    if (new_password !== confirm_password) {
+        return res.render('profile', { user, error: 'New passwords do not match.', success: null });
+    }
+
+    if (new_password.length < 6) {
+        return res.render('profile', { user, error: 'Password must be at least 6 characters long.', success: null });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await User.update({ password: hashedPassword }, { where: { id: user.id } });
+
+    res.render('profile', { user, error: null, success: 'Password changed successfully.' });
 });
 
 app.get('/admin/users', isAdmin, async (req, res) => {
