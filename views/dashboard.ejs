@@ -5,15 +5,15 @@
 <div class="row" id="server-list">
     <% if (servers.length === 0) { %>
         <div class="col-12">
-            <div class="alert alert-info">No servers found.</div>
+            <div class="alert alert-info">No servers found. Please configure your API keys in Profile.</div>
         </div>
     <% } else { %>
         <% servers.forEach(server => { %>
             <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card h-100 bg-secondary text-white server-card" data-id="<%= server.id %>">
+                <div class="card h-100 bg-secondary text-white server-card" data-id="<%= server.id %>" data-owner="<%= server.ownerId %>">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0"><%= server.name %></h5>
-                        <span class="badge bg-dark"><%= server.id %></span>
+                        <span class="badge bg-dark"><%= server.owner %></span>
                     </div>
                     <div class="card-body">
                         <p class="card-text">

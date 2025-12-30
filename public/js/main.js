@@ -3,6 +3,7 @@ $(document).ready(function() {
         const btn = $(this);
         const card = btn.closest('.server-card');
         const serverId = card.data('id');
+        const ownerId = card.data('owner');
         const action = btn.data('action');
         
         // Disable buttons while processing
@@ -16,7 +17,7 @@ $(document).ready(function() {
             url: `/api/server/${serverId}/power`,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ signal: action }),
+            data: JSON.stringify({ signal: action, ownerId: ownerId }),
             success: function(response) {
                 if (response.success) {
                     // Ideally we would poll for status update, but for now let's just reload or show success

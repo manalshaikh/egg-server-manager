@@ -1,0 +1,85 @@
+<%- include('partials/header') %>
+
+<h2 class="mb-4">User Management</h2>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-secondary text-white">
+            <div class="card-header">
+                <h4>Create New User</h4>
+            </div>
+            <div class="card-body">
+                <form action="/admin/users" method="POST" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="role" class="form-label">Role</label>
+                        <select id="role" name="role" class="form-select">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100">Create User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card bg-secondary text-white">
+            <div class="card-header">
+                <h4>Existing Users</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Ptero URL</th>
+                                <th>API Key Configured</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% users.forEach(u => { %>
+                                <tr>
+                                    <td><%= u.id %></td>
+                                    <td><%= u.username %></td>
+                                    <td>
+                                        <span class="badge <%= u.role === 'admin' ? 'bg-danger' : 'bg-primary' %>">
+                                            <%= u.role %>
+                                        </span>
+                                    </td>
+                                    <td><%= u.ptero_url || 'Not set' %></td>
+                                    <td>
+                                        <% if (u.ptero_api_key) { %>
+                                            <span class="badge bg-success">Yes</span>
+                                        <% } else { %>
+                                            <span class="badge bg-warning text-dark">No</span>
+                                        <% } %>
+                                    </td>
+                                    <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

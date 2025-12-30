@@ -1,36 +1,42 @@
 const axios = require('axios');
-require('dotenv').config();
 
-const PANEL_URL = process.env.PTERO_PANEL_URL;
-const API_KEY = process.env.PTERO_API_KEY;
+function getClient(url, key) {
+    if (!url || !key) return null;
+    const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    return axios.create({
+        baseURL: `${baseUrl}/api/client`,
+        headers: {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+    });
+}
 
-const api = axios.create({
-    baseURL: `${PANEL_URL}/api/client`,
-    headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    }
-});
-
-async function getServers() {
+async function getServers(url, key) {
+    const api = getClient(url, key);
+    if (!api) return [];
+    
     try {
         const response = await api.get('/');
         return response.data.data.map(server => ({
             id: server.attributes.identifier,
             name: server.attributes.name,
             node: server.attributes.node,
-            status: server.attributes.status || 'unknown', // status is often null if not performing an action
+            status: server.attributes.status || 'unknown',
             limits: server.attributes.limits,
             uuid: server.attributes.uuid
         }));
     } catch (error) {
-        console.error('Error fetching servers:', error.message);
+        console.error(`Error fetching servers from ${url}:`, error.message);
         return [];
     }
 }
 
-async function getServerState(serverId) {
+async function getServerState(url, key, serverId) {
+    const api = getClient(url, key);
+    if (!api) return 'unknown';
+
     try {
         const response = await api.get(`/servers/${serverId}/resources`);
         return response.data.attributes.current_state;
@@ -40,9 +46,11 @@ async function getServerState(serverId) {
     }
 }
 
-async function setPowerState(serverId, signal) {
+async function setPowerState(url, key, serverId, signal) {
+    const api = getClient(url, key);
+    if (!api) return false;
+
     try {
-        // signal: 'start', 'stop', 'restart', 'kill'
         await api.post(`/servers/${serverId}/power`, { signal });
         return true;
     } catch (error) {

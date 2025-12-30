@@ -2,7 +2,9 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
+const bcrypt = require('bcrypt');
 const ptero = require('./ptero');
+const { User, initDb } = require('./db');
 require('dotenv').config();
 
 const app = express();
@@ -23,21 +25,42 @@ app.use(session({
 
 // Middleware to check authentication
 function isAuthenticated(req, res, next) {
-    if (req.session.user) {
+    if (req.session.userId) {
         next();
     } else {
         res.redirect('/login');
     }
 }
 
+async function isAdmin(req, res, next) {
+    if (!req.session.userId) return res.redirect('/login');
+    const user = await User.findByPk(req.session.userId);
+    if (user && user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).send('Access denied');
+    }
+}
+
+app.use(async (req, res, next) => {
+    if (req.session.userId) {
+        res.locals.user = await User.findByPk(req.session.userId);
+    } else {
+        res.locals.user = null;
+    }
+    next();
+});
+
 app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
-        req.session.user = username;
+    const user = await User.findOne({ where: { username } });
+    
+    if (user && await bcrypt.compare(password, user.password)) {
+        req.session.userId = user.id;
         res.redirect('/dashboard');
     } else {
         res.render('login', { error: 'Invalid credentials' });
@@ -50,29 +73,91 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/dashboard', isAuthenticated, async (req, res) => {
-    const servers = await ptero.getServers();
-    // Fetch state for each server
-    const serversWithState = await Promise.all(servers.map(async (server) => {
-        const state = await ptero.getServerState(server.id);
-        return { ...server, state };
-    }));
+    const currentUser = await User.findByPk(req.session.userId);
+    let allServers = [];
+
+    if (currentUser.role === 'admin') {
+        const users = await User.findAll();
+        for (const user of users) {
+            if (user.ptero_url && user.ptero_api_key) {
+                const servers = await ptero.getServers(user.ptero_url, user.ptero_api_key);
+                const serversWithState = await Promise.all(servers.map(async (server) => {
+                    const state = await ptero.getServerState(user.ptero_url, user.ptero_api_key, server.id);
+                    return { ...server, state, owner: user.username, ownerId: user.id };
+                }));
+                allServers = allServers.concat(serversWithState);
+            }
+        }
+    } else {
+        if (currentUser.ptero_url && currentUser.ptero_api_key) {
+            const servers = await ptero.getServers(currentUser.ptero_url, currentUser.ptero_api_key);
+            const serversWithState = await Promise.all(servers.map(async (server) => {
+                const state = await ptero.getServerState(currentUser.ptero_url, currentUser.ptero_api_key, server.id);
+                return { ...server, state, owner: currentUser.username, ownerId: currentUser.id };
+            }));
+            allServers = serversWithState;
+        }
+    }
     
-    res.render('dashboard', { servers: serversWithState, user: req.session.user });
+    res.render('dashboard', { servers: allServers, user: currentUser });
 });
 
 app.post('/api/server/:id/power', isAuthenticated, async (req, res) => {
     const { id } = req.params;
-    const { signal } = req.body;
+    const { signal, ownerId } = req.body;
     
-    const success = await ptero.setPowerState(id, signal);
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+             return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const success = await ptero.setPowerState(targetUser.ptero_url, targetUser.ptero_api_key, id, signal);
     res.json({ success });
+});
+
+app.get('/profile', isAuthenticated, async (req, res) => {
+    const user = await User.findByPk(req.session.userId);
+    res.render('profile', { user });
+});
+
+app.post('/profile', isAuthenticated, async (req, res) => {
+    const { ptero_url, ptero_api_key } = req.body;
+    await User.update({ ptero_url, ptero_api_key }, { where: { id: req.session.userId } });
+    res.redirect('/dashboard');
+});
+
+app.get('/admin/users', isAdmin, async (req, res) => {
+    const users = await User.findAll();
+    res.render('admin_users', { users });
+});
+
+app.post('/admin/users', isAdmin, async (req, res) => {
+    const { username, password, role } = req.body;
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.create({ username, password: hashedPassword, role });
+        res.redirect('/admin/users');
+    } catch (error) {
+        res.status(400).send('Error creating user: ' + error.message);
+    }
 });
 
 app.get('/', (req, res) => {
     res.redirect('/dashboard');
 });
 
-function startWeb() {
+async function startWeb() {
+    await initDb();
     app.listen(PORT, () => {
         console.log(`Web manager running on http://localhost:${PORT}`);
     });
