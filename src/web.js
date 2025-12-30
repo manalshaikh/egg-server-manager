@@ -3,12 +3,16 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 const ptero = require('./ptero');
-const { User, initDb } = require('./db');
+const { User, BannedIp, LoginAttempt, initDb } = require('./db');
+const { Op } = require('sequelize');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const TURNSTILE_SECRET_KEY = '0x4AAAAAACJuDF9QLsB0-rvwHI4qcXTqKXk';
+const TURNSTILE_CLIENT_KEY = '0x4AAAAAACJuDPFJ7Iwgvyqx';
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
@@ -16,6 +20,8 @@ app.set('views', path.join(__dirname, '../views'));
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+// Trust proxy to get real IP if behind reverse proxy (like nginx/cloudflare)
+app.set('trust proxy', true);
 
 app.use(session({
     secret: 'secret-key-change-this',
@@ -52,18 +58,81 @@ app.use(async (req, res, next) => {
 });
 
 app.get('/login', (req, res) => {
-    res.render('login', { error: null });
+    res.render('login', { error: null, turnstileKey: TURNSTILE_CLIENT_KEY });
 });
 
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, 'cf-turnstile-response': turnstileToken } = req.body;
+    const ip = req.ip;
+
+    // Check if IP is banned
+    const banned = await BannedIp.findOne({
+        where: {
+            ip: ip,
+            [Op.or]: [
+                { expiresAt: null },
+                { expiresAt: { [Op.gt]: new Date() } }
+            ]
+        }
+    });
+
+    if (banned) {
+        return res.render('login', { error: `Your IP is banned. Reason: ${banned.reason}`, turnstileKey: TURNSTILE_CLIENT_KEY });
+    }
+
+    // Verify Turnstile
+    if (!turnstileToken) {
+        return res.render('login', { error: 'Please complete the captcha.', turnstileKey: TURNSTILE_CLIENT_KEY });
+    }
+
+    try {
+        const verifyRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            secret: TURNSTILE_SECRET_KEY,
+            response: turnstileToken,
+            remoteip: ip
+        });
+
+        if (!verifyRes.data.success) {
+            return res.render('login', { error: 'Captcha verification failed.', turnstileKey: TURNSTILE_CLIENT_KEY });
+        }
+    } catch (err) {
+        console.error('Turnstile verification error:', err);
+        return res.render('login', { error: 'Captcha verification error.', turnstileKey: TURNSTILE_CLIENT_KEY });
+    }
+
     const user = await User.findOne({ where: { username } });
     
     if (user && await bcrypt.compare(password, user.password)) {
+        // Clear login attempts on success
+        await LoginAttempt.destroy({ where: { ip } });
         req.session.userId = user.id;
         res.redirect('/dashboard');
     } else {
-        res.render('login', { error: 'Invalid credentials' });
+        // Handle failed attempt
+        let attempt = await LoginAttempt.findOne({ where: { ip } });
+        if (!attempt) {
+            attempt = await LoginAttempt.create({ ip, attempts: 1 });
+        } else {
+            attempt.attempts += 1;
+            attempt.lastAttempt = new Date();
+            await attempt.save();
+        }
+
+        if (attempt.attempts > 2) {
+            // Ban IP for 24 hours
+            const expiresAt = new Date();
+            expiresAt.setHours(expiresAt.getHours() + 24);
+            await BannedIp.create({
+                ip: ip,
+                reason: 'Too many failed login attempts',
+                expiresAt: expiresAt
+            });
+            // Reset attempts
+            await attempt.destroy();
+            return res.render('login', { error: 'Too many failed attempts. Your IP has been banned for 24 hours.', turnstileKey: TURNSTILE_CLIENT_KEY });
+        }
+
+        res.render('login', { error: 'Invalid credentials', turnstileKey: TURNSTILE_CLIENT_KEY });
     }
 });
 
@@ -173,6 +242,27 @@ app.post('/admin/users', isAdmin, async (req, res) => {
     } catch (error) {
         res.status(400).send('Error creating user: ' + error.message);
     }
+});
+
+app.get('/admin/bans', isAdmin, async (req, res) => {
+    const bans = await BannedIp.findAll();
+    res.render('admin_bans', { bans });
+});
+
+app.post('/admin/bans', isAdmin, async (req, res) => {
+    const { ip, reason } = req.body;
+    try {
+        await BannedIp.create({ ip, reason });
+        res.redirect('/admin/bans');
+    } catch (error) {
+        res.status(400).send('Error banning IP: ' + error.message);
+    }
+});
+
+app.post('/admin/bans/delete', isAdmin, async (req, res) => {
+    const { id } = req.body;
+    await BannedIp.destroy({ where: { id } });
+    res.redirect('/admin/bans');
 });
 
 app.get('/', (req, res) => {

@@ -10,9 +10,12 @@ const sequelize = new Sequelize({
 });
 
 const User = require('./models/User')(sequelize);
+const BannedIp = require('./models/BannedIp')(sequelize);
+const LoginAttempt = require('./models/LoginAttempt')(sequelize);
 
 async function initDb() {
-    await sequelize.sync();
+    // alter: true updates the schema to match the models without losing data
+    await sequelize.sync({ alter: true });
     
     // Check if admin exists
     const admin = await User.findOne({ where: { username: process.env.ADMIN_USERNAME || 'admin' } });
@@ -29,4 +32,4 @@ async function initDb() {
     }
 }
 
-module.exports = { sequelize, User, initDb };
+module.exports = { sequelize, User, BannedIp, LoginAttempt, initDb };
