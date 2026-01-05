@@ -334,10 +334,9 @@ $(document).ready(function() {
     }
 
     function connectToConsoleWebSocket(wsDetails, logsContainer) {
-        // Use our WebSocket proxy instead of connecting directly to Pterodactyl
-        const serverId = $('#consoleModal').data('server-id');
-        const ownerId = $('#consoleModal').data('owner-id');
-        const wsUrl = `ws://${window.location.host}/ws/console?serverId=${encodeURIComponent(serverId)}&sessionId=${encodeURIComponent(ownerId)}`;
+        // Use secure WebSocket (wss) if page is loaded over HTTPS, otherwise ws
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/console?serverId=${encodeURIComponent(serverId)}&sessionId=${encodeURIComponent(ownerId)}`;
 
         console.log('Connecting to proxied WebSocket:', wsUrl);
 
