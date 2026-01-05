@@ -75,8 +75,10 @@ async function handleConsoleWebSocket(clientWs, searchParams) {
             return;
         }
 
-        // Connect to Pterodactyl WebSocket
-        const pteroWs = new WebSocket(wsDetails.socket);
+        // Connect to Pterodactyl WebSocket with proper origin
+        const pteroWs = new WebSocket(wsDetails.socket, [], {
+            origin: currentUser.ptero_url.replace(/\/$/, '') // Remove trailing slash
+        });
 
         pteroWs.onopen = () => {
             console.log('Connected to Pterodactyl WebSocket');
