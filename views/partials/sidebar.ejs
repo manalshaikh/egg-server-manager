@@ -1,0 +1,44 @@
+<div class="glass-sidebar border-end d-flex flex-column" id="sidebar-wrapper">
+    <div class="sidebar-heading text-center py-4 primary-text fs-4 fw-bold text-uppercase border-bottom border-white border-opacity-10">
+        <i class="fas fa-egg me-2"></i>Egg Manager
+    </div>
+    
+    <div class="list-group list-group-flush my-3 flex-grow-1">
+        <a href="/dashboard" class="list-group-item list-group-item-action bg-transparent second-text fw-bold <%= path === '/dashboard' ? 'active' : '' %>">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </a>
+        <a href="/profile" class="list-group-item list-group-item-action bg-transparent second-text fw-bold <%= path === '/profile' ? 'active' : '' %>">
+            <i class="fas fa-user-cog me-2"></i>Profile
+        </a>
+        
+        <% if (user.role === 'admin') { %>
+            <div class="sidebar-subheading text-muted text-uppercase fs-7 fw-bold mt-4 mb-2 px-3 small">
+                <i class="fas fa-shield-alt me-1"></i> Administration
+            </div>
+            <a href="/admin/users" class="list-group-item list-group-item-action bg-transparent second-text fw-bold <%= path === '/admin/users' ? 'active' : '' %>">
+                <i class="fas fa-users me-2"></i>Users
+            </a>
+            <a href="/admin/bans" class="list-group-item list-group-item-action bg-transparent second-text fw-bold <%= path === '/admin/bans' ? 'active' : '' %>">
+                <i class="fas fa-gavel me-2"></i>Bans
+            </a>
+            <a href="/admin/logs" class="list-group-item list-group-item-action bg-transparent second-text fw-bold <%= path === '/admin/logs' ? 'active' : '' %>">
+                <i class="fas fa-clipboard-list me-2"></i>Logs
+            </a>
+        <% } %>
+    </div>
+    
+    <div class="sidebar-footer p-3 border-top border-white border-opacity-10 mt-auto">
+        <div class="d-flex align-items-center mb-3">
+            <div class="avatar bg-gradient-primary rounded-circle text-white d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px; font-weight: bold;">
+                <%= user.username.charAt(0).toUpperCase() %>
+            </div>
+            <div class="overflow-hidden">
+                <div class="fw-bold text-truncate"><%= user.username %></div>
+                <div class="small text-muted text-uppercase" style="font-size: 0.7rem;"><%= user.role %></div>
+            </div>
+        </div>
+        <a href="/logout" class="btn btn-danger w-100 btn-sm">
+            <i class="fas fa-sign-out-alt me-2"></i>Logout
+        </a>
+    </div>
+</div>
