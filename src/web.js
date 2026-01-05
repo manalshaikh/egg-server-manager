@@ -49,6 +49,7 @@ async function isAdmin(req, res, next) {
 }
 
 app.use(async (req, res, next) => {
+    res.locals.path = req.path;
     if (req.session.userId) {
         res.locals.user = await User.findByPk(req.session.userId);
     } else {
