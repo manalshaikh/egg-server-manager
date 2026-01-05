@@ -197,20 +197,10 @@ async function getConsoleLogs(url, key, serverId) {
         const response = await api.get(`/servers/${serverId}/console`);
         console.log('Console API response:', response.data);
         
-        // The console endpoint might return websocket info or recent logs
-        // If it returns data, try to extract logs from it
-        if (response.data && typeof response.data === 'string') {
-            return response.data.split('\n').filter(line => line.trim());
-        } else if (response.data && Array.isArray(response.data)) {
-            return response.data;
-        } else if (response.data && response.data.logs) {
-            return response.data.logs;
-        }
-        
-        // If no logs found, return empty array
-        return [];
+        // Return websocket connection details
+        return response.data;
     } catch (error) {
-        console.error(`Error getting console logs for ${serverId}:`, error.message);
+        console.error(`Error getting console websocket details for ${serverId}:`, error.message);
         return null;
     }
 }
