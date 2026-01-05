@@ -334,6 +334,10 @@ $(document).ready(function() {
     }
 
     function connectToConsoleWebSocket(wsDetails, logsContainer) {
+        // Get server and owner IDs from modal data
+        const serverId = $('#consoleModal').data('server-id');
+        const ownerId = $('#consoleModal').data('owner-id');
+
         // Use secure WebSocket (wss) if page is loaded over HTTPS, otherwise ws
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/ws/console?serverId=${encodeURIComponent(serverId)}&sessionId=${encodeURIComponent(ownerId)}`;
