@@ -153,7 +153,12 @@ $(document).ready(function() {
                         if (response.logs.status === 404) {
                             logsContainer.append('<div class="text-muted mt-2">This might mean the server is not accessible or the console feature is not available.</div>');
                         }
+                    } else if (response.logs.logs) {
+                        // Application API returned logs directly
+                        console.log('Received logs from application API');
+                        displayLogs(response.logs.logs);
                     } else {
+                        // Client API returned websocket details
                         console.log('Connecting to websocket...');
                         connectToConsole(response.logs, logsContainer);
                     }

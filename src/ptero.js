@@ -13,6 +13,19 @@ function getClient(url, key) {
     });
 }
 
+function getApplicationClient(url, key) {
+    if (!url || !key) return null;
+    const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    return axios.create({
+        baseURL: `${baseUrl}/api/application`,
+        headers: {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+    });
+}
+
 async function getServers(url, key) {
     const api = getClient(url, key);
     if (!api) return [];
@@ -190,26 +203,46 @@ async function writeFile(url, key, serverId, file, content) {
 }
 
 async function getConsoleLogs(url, key, serverId) {
-    const api = getClient(url, key);
-    if (!api) return null;
+    const clientApi = getClient(url, key);
+    if (!clientApi) return null;
 
     try {
-        console.log(`Attempting to get console for server ${serverId}`);
-        console.log('API base URL:', url);
+        console.log(`Attempting client API console for server ${serverId}`);
+        console.log('Client API base URL:', url);
         console.log('Full console endpoint:', `${url}/api/client/servers/${serverId}/console`);
 
-        const response = await api.get(`/servers/${serverId}/console`);
+        const response = await clientApi.get(`/servers/${serverId}/console`);
         console.log('Console API response:', response.data);
 
         // Return websocket connection details
         return response.data;
     } catch (error) {
-        console.error(`Error getting console websocket details for ${serverId}:`, error.message);
-        console.error('Error response:', error.response?.data);
-        console.error('Error status:', error.response?.status);
-        console.error('Error headers:', error.response?.headers);
+        console.error(`Client API console failed for ${serverId}:`, error.message);
 
-        // Return error information instead of null
+        // Try application API as fallback
+        console.log('Trying application API logs endpoint...');
+        try {
+            const appApi = getApplicationClient(url, key);
+            if (!appApi) {
+                throw new Error('Cannot create application API client');
+            }
+
+            console.log('Application API endpoint:', `${url}/api/application/servers/${serverId}/logs`);
+            const appResponse = await appApi.get(`/servers/${serverId}/logs`);
+            console.log('Application logs response:', appResponse.data);
+
+            // If we get logs data, return it
+            if (appResponse.data && appResponse.data.data) {
+                return { logs: appResponse.data.data };
+            } else if (appResponse.data) {
+                return { logs: appResponse.data };
+            }
+
+        } catch (appError) {
+            console.error('Application API also failed:', appError.message);
+        }
+
+        // If both APIs fail, return error information
         return {
             error: true,
             message: error.message,
