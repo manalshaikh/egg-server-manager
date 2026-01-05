@@ -208,13 +208,14 @@ async function getConsoleLogs(url, key, serverId) {
 
     try {
         console.log(`Getting console websocket details for server ${serverId}`);
-        const response = await api.get(`/servers/${serverId}/console`);
+        const response = await api.get(`/servers/${serverId}/websocket`);
         console.log('Console websocket response:', response.data);
 
         // Return websocket connection details for real-time streaming
-        return response.data;
+        // Response structure: { data: { token: "...", socket: "..." } }
+        return response.data.data;
     } catch (error) {
-        console.error(`Error getting console details for ${serverId}:`, error.message);
+        console.error(`Error getting console websocket details for ${serverId}:`, error.message);
         return {
             error: true,
             message: error.message,

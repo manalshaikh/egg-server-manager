@@ -333,6 +333,88 @@ $(document).ready(function() {
         logsContainer.data('websocket', ws);
     }
 
+    function connectToConsoleWebSocket(wsDetails, logsContainer) {
+        if (!wsDetails || !wsDetails.socket || !wsDetails.token) {
+            logsContainer.html('<div class="text-danger">Invalid websocket details received from server.</div>');
+            return;
+        }
+
+        console.log('WebSocket details:', wsDetails);
+
+        // Create websocket connection
+        const ws = new WebSocket(wsDetails.socket);
+
+        // Connection opened
+        ws.onopen = function(event) {
+            console.log('WebSocket connection opened');
+            logsContainer.html('<div class="text-success">Connected to console. Loading logs...</div>');
+
+            // Authenticate with the token
+            ws.send(JSON.stringify({
+                event: 'auth',
+                args: [wsDetails.token]
+            }));
+        };
+
+        // Listen for messages
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message:', data);
+
+                if (data.event === 'auth success') {
+                    console.log('Authentication successful');
+                    logsContainer.html('<div class="text-success">Console connected. Waiting for output...</div>');
+
+                    // Request initial console output
+                    ws.send(JSON.stringify({
+                        event: 'send logs',
+                        args: [null]
+                    }));
+
+                } else if (data.event === 'console output') {
+                    // Display console output
+                    if (data.args && data.args[0]) {
+                        displayConsoleOutput(data.args[0], logsContainer);
+                    }
+
+                } else if (data.event === 'status') {
+                    console.log('Server status:', data.args[0]);
+
+                } else if (data.event === 'token expiring') {
+                    console.log('Token expiring, reconnecting...');
+                    // Token is expiring, we might need to refresh
+
+                } else if (data.event === 'token expired') {
+                    console.log('Token expired');
+                    logsContainer.html('<div class="text-warning">Console session expired. Please refresh the page.</div>');
+                    ws.close();
+                }
+
+            } catch (e) {
+                console.error('Error parsing websocket message:', e);
+            }
+        };
+
+        // Connection closed
+        ws.onclose = function(event) {
+            console.log('WebSocket connection closed:', event.code, event.reason);
+            if (event.code !== 1000) { // Not a normal closure
+                logsContainer.append('<div class="text-warning mt-2">Console connection lost. Attempting to reconnect...</div>');
+                // Could implement reconnection logic here
+            }
+        };
+
+        // Connection error
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            logsContainer.html('<div class="text-danger">Failed to connect to console websocket.</div>');
+        };
+
+        // Store websocket reference for command sending
+        logsContainer.data('websocket', ws);
+    }
+
     function displayConsoleOutput(output, logsContainer) {
         // Get current content or initialize empty array
         let logLines = logsContainer.data('logLines') || [];
