@@ -194,29 +194,20 @@ async function getConsoleLogs(url, key, serverId) {
     if (!api) return null;
 
     try {
-        // Try to read common log files
-        const logFiles = [
-            'logs/latest.log',
-            'server.log',
-            'logs/server.log',
-            'output.log'
-        ];
+        const response = await api.get(`/servers/${serverId}/console`);
+        console.log('Console API response:', response.data);
         
-        for (const logFile of logFiles) {
-            try {
-                const response = await api.get(`/servers/${serverId}/files/contents?file=${encodeURIComponent(logFile)}`);
-                if (response.data) {
-                    // Split by newlines and return last 100 lines
-                    const lines = response.data.split('\n').filter(line => line.trim());
-                    return lines.slice(-100);
-                }
-            } catch (fileError) {
-                // Continue to next file
-                continue;
-            }
+        // The console endpoint might return websocket info or recent logs
+        // If it returns data, try to extract logs from it
+        if (response.data && typeof response.data === 'string') {
+            return response.data.split('\n').filter(line => line.trim());
+        } else if (response.data && Array.isArray(response.data)) {
+            return response.data;
+        } else if (response.data && response.data.logs) {
+            return response.data.logs;
         }
         
-        // If no log files found, return empty array
+        // If no logs found, return empty array
         return [];
     } catch (error) {
         console.error(`Error getting console logs for ${serverId}:`, error.message);
