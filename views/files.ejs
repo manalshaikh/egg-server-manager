@@ -1,0 +1,159 @@
+<%- include('partials/header') %>
+
+<div class="d-flex align-items-center mb-4">
+    <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
+        <i class="fas fa-folder fa-2x text-info"></i>
+    </div>
+    <div>
+        <h2 class="fw-bold mb-0">File Manager</h2>
+        <p class="text-muted mb-0">Browse and edit files for server <%= serverId %></p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-folder-open me-2 text-info"></i> Files</h4>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0 bg-transparent">
+                        <li class="breadcrumb-item"><a href="#" onclick="navigateTo('/')">/</a></li>
+                        <% currentDir.split('/').filter(p => p).forEach((part, index, arr) => { %>
+                            <li class="breadcrumb-item">
+                                <a href="#" onclick="navigateTo('<%= '/' + arr.slice(0, index + 1).join('/') %>')"><%= part %></a>
+                            </li>
+                        <% }); %>
+                    </ol>
+                </nav>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="border-0 text-uppercase small fw-bold text-muted ps-4">Name</th>
+                                <th class="border-0 text-uppercase small fw-bold text-muted">Size</th>
+                                <th class="border-0 text-uppercase small fw-bold text-muted">Modified</th>
+                                <th class="border-0 text-uppercase small fw-bold text-muted pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (files.length === 0) { %>
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No files in this directory.</td>
+                                </tr>
+                            <% } else { %>
+                                <% files.forEach(file => { %>
+                                    <tr>
+                                        <td class="ps-4">
+                                            <% if (file.type === 'directory') { %>
+                                                <i class="fas fa-folder text-warning me-2"></i>
+                                                <a href="#" onclick="navigateTo('<%= currentDir %>/<%= file.name %>')" class="text-decoration-none"><%= file.name %></a>
+                                            <% } else { %>
+                                                <i class="fas fa-file text-muted me-2"></i>
+                                                <%= file.name %>
+                                            <% } %>
+                                        </td>
+                                        <td><%= file.size ? (file.size / 1024).toFixed(2) + ' KB' : '-' %></td>
+                                        <td><%= file.modified ? new Date(file.modified).toLocaleString() : '-' %></td>
+                                        <td class="pe-4">
+                                            <% if (file.type === 'file') { %>
+                                                <button class="btn btn-sm btn-outline-primary edit-file" data-path="<%= currentDir %>/<%= file.name %>">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Editor Modal -->
+<div class="modal fade" id="fileEditorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="fileEditForm">
+                    <div class="mb-3">
+                        <label for="filePath" class="form-label">File Path</label>
+                        <input type="text" class="form-control" id="filePath" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fileContent" class="form-label">Content</label>
+                        <textarea class="form-control" id="fileContent" rows="15" style="font-family: monospace;"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveFileBtn">
+                    <i class="fas fa-save me-2"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('.edit-file').click(function() {
+        const filePath = $(this).data('path');
+        $('#filePath').val(filePath);
+
+        // Load file content
+        $.get(`/server/<%= serverId %>/files/content?path=${encodeURIComponent(filePath)}&ownerId=<%= ownerId %>`)
+            .done(function(data) {
+                $('#fileContent').val(data);
+                $('#fileEditorModal').modal('show');
+            })
+            .fail(function() {
+                alert('Failed to load file content.');
+            });
+    });
+
+    $('#saveFileBtn').click(function() {
+        const filePath = $('#filePath').val();
+        const content = $('#fileContent').val();
+
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i> Saving...');
+
+        $.ajax({
+            url: `/api/server/<%= serverId %>/files/write?ownerId=<%= ownerId %>`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ path: filePath, content: content }),
+            success: function(response) {
+                if (response.success) {
+                    alert('File saved successfully!');
+                    $('#fileEditorModal').modal('hide');
+                } else {
+                    alert('Failed to save file: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Error saving file.');
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i> Save Changes');
+            }
+        });
+    });
+
+    window.navigateTo = function(path) {
+        window.location.href = `/server/<%= serverId %>/files?path=${encodeURIComponent(path)}&ownerId=<%= ownerId %>`;
+    };
+});
+</script>
+
+<%- include('partials/footer') %>

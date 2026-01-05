@@ -321,6 +321,210 @@ app.post('/admin/bans/delete', isAdmin, async (req, res) => {
     res.redirect('/admin/bans');
 });
 
+app.post('/api/server/:id/command', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { command, ownerId } = req.body;
+    
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const success = await ptero.sendCommand(targetUser.ptero_url, targetUser.ptero_api_key, id, command);
+    if (success) {
+        await ActionLog.create({
+            username: currentUser.username,
+            ip: req.ip,
+            action: 'server_command',
+            details: `Sent command "${command}" to server ${id}`
+        });
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ success: false, message: 'Failed to send command' });
+    }
+});
+
+app.get('/server/:id/backups', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const currentUser = await User.findByPk(req.session.userId);
+    
+    let targetUser = currentUser;
+    const ownerId = req.query.ownerId;
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).send('Unauthorized');
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).send('No API credentials');
+    }
+
+    const backups = await ptero.listBackups(targetUser.ptero_url, targetUser.ptero_api_key, id);
+    res.render('backups', { backups, serverId: id, ownerId: targetUser.id, user: currentUser });
+});
+
+app.post('/api/server/:id/backups', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { name, ownerId } = req.body;
+    
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const success = await ptero.createBackup(targetUser.ptero_url, targetUser.ptero_api_key, id, name);
+    if (success) {
+        await ActionLog.create({
+            username: currentUser.username,
+            ip: req.ip,
+            action: 'create_backup',
+            details: `Created backup "${name}" for server ${id}`
+        });
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ success: false, message: 'Failed to create backup' });
+    }
+});
+
+app.delete('/api/server/:id/backups/:backupUuid', isAuthenticated, async (req, res) => {
+    const { id, backupUuid } = req.params;
+    const ownerId = req.query.ownerId;
+    
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const success = await ptero.deleteBackup(targetUser.ptero_url, targetUser.ptero_api_key, id, backupUuid);
+    if (success) {
+        await ActionLog.create({
+            username: currentUser.username,
+            ip: req.ip,
+            action: 'delete_backup',
+            details: `Deleted backup ${backupUuid} for server ${id}`
+        });
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ success: false, message: 'Failed to delete backup' });
+    }
+});
+
+app.get('/server/:id/files', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const directory = req.query.dir || '/';
+    const currentUser = await User.findByPk(req.session.userId);
+    
+    let targetUser = currentUser;
+    const ownerId = req.query.ownerId;
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).send('Unauthorized');
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).send('No API credentials');
+    }
+
+    const files = await ptero.listFiles(targetUser.ptero_url, targetUser.ptero_api_key, id, directory);
+    res.render('files', { files, serverId: id, currentDir: directory, ownerId: targetUser.id, user: currentUser });
+});
+
+app.get('/server/:id/files/content', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const file = req.query.file;
+    const currentUser = await User.findByPk(req.session.userId);
+    
+    let targetUser = currentUser;
+    const ownerId = req.query.ownerId;
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).send('Unauthorized');
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).send('No API credentials');
+    }
+
+    const content = await ptero.getFileContent(targetUser.ptero_url, targetUser.ptero_api_key, id, file);
+    if (content !== null) {
+        res.type('text/plain').send(content);
+    } else {
+        res.status(404).send('File not found');
+    }
+});
+
+app.post('/api/server/:id/files/write', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { file, content, ownerId } = req.body;
+    
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const success = await ptero.writeFile(targetUser.ptero_url, targetUser.ptero_api_key, id, file, content);
+    if (success) {
+        await ActionLog.create({
+            username: currentUser.username,
+            ip: req.ip,
+            action: 'edit_file',
+            details: `Edited file ${file} on server ${id}`
+        });
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ success: false, message: 'Failed to write file' });
+    }
+});
+
 app.get('/', (req, res) => {
     res.redirect('/dashboard');
 });
