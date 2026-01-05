@@ -195,6 +195,9 @@ async function getConsoleLogs(url, key, serverId) {
 
     try {
         console.log(`Attempting to get console for server ${serverId}`);
+        console.log('API base URL:', url);
+        console.log('Full console endpoint:', `${url}/api/client/servers/${serverId}/console`);
+
         const response = await api.get(`/servers/${serverId}/console`);
         console.log('Console API response:', response.data);
 
@@ -202,7 +205,9 @@ async function getConsoleLogs(url, key, serverId) {
         return response.data;
     } catch (error) {
         console.error(`Error getting console websocket details for ${serverId}:`, error.message);
-        console.error('Full error:', error.response?.data || error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Error headers:', error.response?.headers);
 
         // Return error information instead of null
         return {
@@ -212,9 +217,7 @@ async function getConsoleLogs(url, key, serverId) {
             details: error.response?.data
         };
     }
-}
-
-async function setPowerState(url, key, serverId, signal) {
+}async function setPowerState(url, key, serverId, signal) {
     const api = getClient(url, key);
     if (!api) return false;
 
