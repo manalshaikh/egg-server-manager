@@ -1,6 +1,6 @@
 # Egg Server Manager
 
-A modern, feature-rich Web Dashboard and Discord Bot for managing Pterodactyl game servers. Built with Node.js, Express, and Discord.js.
+A modern, feature-rich Web Dashboard for managing Pterodactyl game servers. Built with Node.js and Express.
 
 ## Features
 
@@ -17,10 +17,6 @@ A modern, feature-rich Web Dashboard and Discord Bot for managing Pterodactyl ga
   - Cloudflare Turnstile Captcha integration.
   - Secure session handling.
 - **Logging**: Comprehensive action logs for all user activities (logins, server actions, bans).
-
-### 🤖 Discord Bot
-- Control your servers directly from Discord.
-- Status monitoring and commands.
 
 ## Installation
 
@@ -39,8 +35,6 @@ A modern, feature-rich Web Dashboard and Discord Bot for managing Pterodactyl ga
     Create a `.env` file in the root directory with the following variables:
     ```env
     PORT=3000
-    DISCORD_TOKEN=your_discord_bot_token
-    DISCORD_CLIENT_ID=your_discord_client_id
     # Add other necessary env vars here
     ```
 
@@ -58,7 +52,6 @@ A modern, feature-rich Web Dashboard and Discord Bot for managing Pterodactyl ga
 - **Backend**: Node.js, Express
 - **Database**: SQLite (Sequelize ORM)
 - **Frontend**: EJS, Bootstrap 5, Custom CSS
-- **Bot**: Discord.js v14
 - **Security**: Bcrypt, Cloudflare Turnstile
 
 ## License
