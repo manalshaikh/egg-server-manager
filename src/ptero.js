@@ -202,28 +202,7 @@ async function writeFile(url, key, serverId, file, content) {
     }
 }
 
-async function getConsoleLogs(url, key, serverId) {
-    const api = getClient(url, key);
-    if (!api) return null;
-
-    try {
-        console.log(`Getting console websocket details for server ${serverId}`);
-        const response = await api.get(`/servers/${serverId}/websocket`);
-        console.log('Console websocket response:', response.data);
-
-        // Return websocket connection details for real-time streaming
-        // Response structure: { data: { token: "...", socket: "..." } }
-        return response.data.data;
-    } catch (error) {
-        console.error(`Error getting console websocket details for ${serverId}:`, error.message);
-        return {
-            error: true,
-            message: error.message,
-            status: error.response?.status,
-            details: error.response?.data
-        };
-    }
-}async function setPowerState(url, key, serverId, signal) {
+async function setPowerState(url, key, serverId, signal) {
     const api = getClient(url, key);
     if (!api) return false;
 
@@ -247,6 +226,5 @@ module.exports = {
     listFiles,
     getFileContent,
     writeFile,
-    getConsoleLogs,
     setPowerState
 };
