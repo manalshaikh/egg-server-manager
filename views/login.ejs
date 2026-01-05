@@ -1,33 +1,48 @@
 <%- include('partials/header') %>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-4">
-        <div class="card bg-secondary text-white">
-            <div class="card-header text-center">
-                <h3>Login</h3>
-            </div>
-            <div class="card-body">
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold text-white" style="text-shadow: 0 0 20px rgba(118, 75, 162, 0.5);">Welcome Back</h1>
+            <p class="text-muted">Sign in to manage your servers</p>
+        </div>
+        
+        <div class="card border-0">
+            <div class="card-body p-4 p-sm-5">
                 <% if (error) { %>
-                    <div class="alert alert-danger"><%= error %></div>
+                    <div class="alert alert-danger d-flex align-items-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div><%= error %></div>
+                    </div>
                 <% } %>
+                
                 <form action="/login" method="POST">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+                    <div class="mb-4">
+                        <label for="username" class="form-label text-uppercase small fw-bold text-muted">Username</label>
+                        <input type="text" class="form-control form-control-lg" id="username" name="username" placeholder="Enter your username" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-uppercase small fw-bold text-muted">Password</label>
+                        <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="••••••••" required>
                     </div>
-                    <div class="mb-3 d-flex justify-content-center">
-                        <div class="cf-turnstile" data-sitekey="<%= turnstileKey %>"></div>
+
+                    <div class="mb-4 d-flex justify-content-center">
+                        <div class="cf-turnstile" data-sitekey="<%= turnstileKey %>" data-theme="dark"></div>
                     </div>
+
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Login</button>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Sign In <i class="bi bi-arrow-right ms-2"></i>
+                        </button>
                     </div>
                 </form>
             </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="small text-muted">&copy; <%= new Date().getFullYear() %> Egg Server Manager</p>
         </div>
     </div>
 </div>
