@@ -334,26 +334,20 @@ $(document).ready(function() {
     }
 
     function connectToConsoleWebSocket(wsDetails, logsContainer) {
-        if (!wsDetails || !wsDetails.socket || !wsDetails.token) {
-            logsContainer.html('<div class="text-danger">Invalid websocket details received from server.</div>');
-            return;
-        }
+        // Use our WebSocket proxy instead of connecting directly to Pterodactyl
+        const serverId = $('#consoleModal').data('server-id');
+        const ownerId = $('#consoleModal').data('owner-id');
+        const wsUrl = `ws://${window.location.host}/ws/console?serverId=${encodeURIComponent(serverId)}&sessionId=${encodeURIComponent(ownerId)}`;
 
-        console.log('WebSocket details:', wsDetails);
+        console.log('Connecting to proxied WebSocket:', wsUrl);
 
-        // Create websocket connection
-        const ws = new WebSocket(wsDetails.socket);
+        // Create websocket connection to our proxy
+        const ws = new WebSocket(wsUrl);
 
         // Connection opened
         ws.onopen = function(event) {
-            console.log('WebSocket connection opened');
-            logsContainer.html('<div class="text-success">Connected to console. Loading logs...</div>');
-
-            // Authenticate with the token
-            ws.send(JSON.stringify({
-                event: 'auth',
-                args: [wsDetails.token]
-            }));
+            console.log('WebSocket proxy connection opened');
+            logsContainer.html('<div class="text-success">Connected to console. Waiting for output...</div>');
         };
 
         // Listen for messages

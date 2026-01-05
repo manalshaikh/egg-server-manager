@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
+const WebSocket = require('ws');
 const ptero = require('./ptero');
 const { User, BannedIp, LoginAttempt, ActionLog, initDb } = require('./db');
 const { Op } = require('sequelize');
@@ -28,6 +29,121 @@ app.use(session({
     resave: false,
     saveUninitialized: true
 }));
+
+// WebSocket server for proxying console connections
+const wss = new WebSocket.Server({ noServer: true });
+
+// Handle WebSocket upgrade
+const server = require('http').createServer(app);
+server.on('upgrade', (request, socket, head) => {
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    
+    if (url.pathname === '/ws/console') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            handleConsoleWebSocket(ws, url.searchParams);
+        });
+    } else {
+        socket.destroy();
+    }
+});
+
+async function handleConsoleWebSocket(clientWs, searchParams) {
+    const serverId = searchParams.get('serverId');
+    const sessionId = searchParams.get('sessionId');
+    
+    if (!serverId || !sessionId) {
+        clientWs.close(1008, 'Missing parameters');
+        return;
+    }
+
+    // Verify session - check if user exists and has valid session
+    const currentUser = await User.findByPk(parseInt(sessionId));
+    if (!currentUser) {
+        clientWs.close(1008, 'Invalid session');
+        return;
+    }
+
+    if (!currentUser.ptero_url || !currentUser.ptero_api_key) {
+        clientWs.close(1008, 'No API credentials configured');
+        return;
+    }
+
+    try {
+        const wsDetails = await ptero.getConsoleLogs(currentUser.ptero_url, currentUser.ptero_api_key, serverId);
+        if (wsDetails.error) {
+            clientWs.close(1008, 'Failed to get console details');
+            return;
+        }
+
+        // Connect to Pterodactyl WebSocket
+        const pteroWs = new WebSocket(wsDetails.socket);
+
+        pteroWs.onopen = () => {
+            console.log('Connected to Pterodactyl WebSocket');
+            // Authenticate
+            pteroWs.send(JSON.stringify({
+                event: 'auth',
+                args: [wsDetails.token]
+            }));
+        };
+
+        pteroWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                // Forward messages to client
+                if (clientWs.readyState === WebSocket.OPEN) {
+                    clientWs.send(JSON.stringify(data));
+                }
+            } catch (e) {
+                console.error('Error parsing Pterodactyl message:', e);
+            }
+        };
+
+        pteroWs.onerror = (error) => {
+            console.error('Pterodactyl WebSocket error:', error);
+            if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.close(1011, 'Pterodactyl connection error');
+            }
+        };
+
+        pteroWs.onclose = (event) => {
+            console.log('Pterodactyl WebSocket closed:', event.code, event.reason);
+            if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.close(event.code, event.reason);
+            }
+        };
+
+        clientWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                // Forward commands to Pterodactyl
+                if (pteroWs.readyState === WebSocket.OPEN) {
+                    pteroWs.send(JSON.stringify(data));
+                }
+            } catch (e) {
+                console.error('Error parsing client message:', e);
+            }
+        };
+
+        clientWs.onclose = () => {
+            console.log('Client WebSocket closed');
+            if (pteroWs.readyState === WebSocket.OPEN) {
+                pteroWs.close();
+            }
+        };
+
+        clientWs.onerror = (error) => {
+            console.error('Client WebSocket error:', error);
+            if (pteroWs.readyState === WebSocket.OPEN) {
+                pteroWs.close();
+            }
+        };
+
+    } catch (error) {
+        console.error('Error setting up WebSocket proxy:', error);
+        clientWs.close(1011, 'Internal server error');
+    }
+}
 
 // Middleware to check authentication
 function isAuthenticated(req, res, next) {
@@ -247,7 +363,7 @@ app.get('/api/server/:id/logs', isAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/api/server/:id/files', isAuthenticated, async (req, res) => {
+app.get('/api/servers/status', isAuthenticated, async (req, res) => {
     const currentUser = await User.findByPk(req.session.userId);
     let allServers = [];
 
@@ -274,6 +390,30 @@ app.get('/api/server/:id/files', isAuthenticated, async (req, res) => {
         }
     }
     res.json(allServers);
+});
+
+app.get('/api/server/:id/files', isAuthenticated, async (req, res) => {
+    let targetUser = currentUser;
+    const ownerId = req.query.ownerId;
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).send('Unauthorized');
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).send('No API credentials');
+    }
+
+    const path = req.query.path || '/';
+    const files = await ptero.listFiles(targetUser.ptero_url, targetUser.ptero_api_key, req.params.id, path);
+    if (files) {
+        res.json({ files, currentPath: path });
+    } else {
+        res.status(500).send('Failed to list files');
+    }
 });
 
 app.get('/profile', isAuthenticated, async (req, res) => {
@@ -592,7 +732,7 @@ app.get('/', (req, res) => {
 
 async function startWeb() {
     await initDb();
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
         console.log(`Web manager running on http://localhost:${PORT}`);
     });
 }
