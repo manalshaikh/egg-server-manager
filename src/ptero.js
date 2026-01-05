@@ -92,15 +92,15 @@ async function sendCommand(url, key, serverId, command) {
     }
 }
 
-async function getResources(url, key, serverId) {
+async function getConsoleLogs(url, key, serverId) {
     const api = getClient(url, key);
     if (!api) return null;
 
     try {
-        const response = await api.get(`/servers/${serverId}/resources`);
-        return response.data.attributes;
+        const response = await api.get(`/servers/${serverId}/websocket`);
+        return response.data;
     } catch (error) {
-        console.error(`Error fetching resources for ${serverId}:`, error.message);
+        console.error(`Error getting console logs for ${serverId}:`, error.message);
         return null;
     }
 }
@@ -219,12 +219,12 @@ module.exports = {
     getServers,
     getServerState,
     sendCommand,
-    getResources,
     listBackups,
     createBackup,
     deleteBackup,
     listFiles,
     getFileContent,
     writeFile,
-    setPowerState
+    setPowerState,
+    getConsoleLogs
 };

@@ -1,6 +1,5 @@
 const express = require('express');
 const session = require('express-session');
-const bodyParser = require('body-parser');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
@@ -18,8 +17,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
 app.use(express.static(path.join(__dirname, '../public')));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 // Trust proxy to get real IP if behind reverse proxy (like nginx/cloudflare)
 app.set('trust proxy', true);
 
