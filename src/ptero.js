@@ -194,8 +194,30 @@ async function getConsoleLogs(url, key, serverId) {
     if (!api) return null;
 
     try {
-        const response = await api.get(`/servers/${serverId}/console`);
-        return response.data;
+        // Try to read common log files
+        const logFiles = [
+            'logs/latest.log',
+            'server.log',
+            'logs/server.log',
+            'output.log'
+        ];
+        
+        for (const logFile of logFiles) {
+            try {
+                const response = await api.get(`/servers/${serverId}/files/contents?file=${encodeURIComponent(logFile)}`);
+                if (response.data) {
+                    // Split by newlines and return last 100 lines
+                    const lines = response.data.split('\n').filter(line => line.trim());
+                    return lines.slice(-100);
+                }
+            } catch (fileError) {
+                // Continue to next file
+                continue;
+            }
+        }
+        
+        // If no log files found, return empty array
+        return [];
     } catch (error) {
         console.error(`Error getting console logs for ${serverId}:`, error.message);
         return null;

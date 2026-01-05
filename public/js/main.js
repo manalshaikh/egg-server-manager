@@ -106,18 +106,22 @@ $(document).ready(function() {
         const logsContainer = $('#logsContainer');
         logsContainer.html('<div class="text-center text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Loading logs...</div>');
         
+        console.log('Loading logs for server:', serverId, 'owner:', ownerId);
+        
         $.ajax({
             url: `/api/server/${serverId}/logs?ownerId=${ownerId}`,
             method: 'GET',
             success: function(response) {
+                console.log('Logs response:', response);
                 if (response.success) {
                     displayLogs(response.logs);
                 } else {
                     logsContainer.html('<div class="text-danger">Failed to load logs: ' + response.message + '</div>');
                 }
             },
-            error: function() {
-                logsContainer.html('<div class="text-danger">Error loading logs.</div>');
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', xhr, status, error);
+                logsContainer.html('<div class="text-danger">Error loading logs: ' + error + '</div>');
             }
         });
     }

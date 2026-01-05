@@ -373,6 +373,7 @@ app.get('/api/server/:id/logs', isAuthenticated, async (req, res) => {
     }
 
     const logs = await ptero.getConsoleLogs(targetUser.ptero_url, targetUser.ptero_api_key, id);
+    console.log('Logs response for server', id, ':', logs);
     if (logs) {
         res.json({ success: true, logs: logs });
     } else {
