@@ -256,6 +256,14 @@ h1, h2, h3, h4, h5, h6 {
     color: rgba(255, 255, 255, 0.4);
 }
 
+.form-label {
+    color: var(--text-main) !important;
+}
+
+.form-text {
+    color: var(--text-muted) !important;
+}
+
 /* Tables */
 .table {
     color: var(--text-main);
@@ -264,6 +272,11 @@ h1, h2, h3, h4, h5, h6 {
 .table-dark {
     background: transparent;
     --bs-table-bg: transparent;
+}
+
+.table th {
+    color: var(--text-main) !important;
+    font-weight: 600;
 }
 
 .table td, .table th {
@@ -349,6 +362,15 @@ h1, h2, h3, h4, h5, h6 {
 /* Utilities */
 .text-muted {
     color: #94a3b8 !important;
+}
+
+/* Ensure all text is visible in dark theme */
+.card, .card-header, .card-body, .table, .form-control, .form-select, .btn, .badge, .alert {
+    color: var(--text-main);
+}
+
+small, .small {
+    color: var(--text-muted);
 }
 
 .alert {
