@@ -1,4 +1,48 @@
 $(document).ready(function() {
+    // Poll for server status every 10 seconds
+    setInterval(updateServerStatus, 10000);
+
+    function updateServerStatus() {
+        $.ajax({
+            url: '/api/servers/status',
+            method: 'GET',
+            success: function(servers) {
+                servers.forEach(server => {
+                    const card = $(`.server-card[data-id="${server.id}"]`);
+                    if (card.length) {
+                        const statusBadge = card.find('.server-status');
+                        const currentStatus = statusBadge.text().trim();
+                        
+                        if (currentStatus !== server.state) {
+                            statusBadge.text(server.state);
+                            statusBadge.removeClass('bg-success bg-danger bg-warning bg-info');
+                            
+                            if (server.state === 'running') statusBadge.addClass('bg-success');
+                            else if (server.state === 'offline') statusBadge.addClass('bg-danger');
+                            else if (server.state === 'starting') statusBadge.addClass('bg-warning');
+                            else statusBadge.addClass('bg-info');
+
+                            // Update buttons
+                            const startBtn = card.find('[data-action="start"]');
+                            const stopBtn = card.find('[data-action="stop"]');
+                            
+                            if (server.state === 'running') {
+                                startBtn.prop('disabled', true);
+                                stopBtn.prop('disabled', false);
+                            } else if (server.state === 'offline') {
+                                startBtn.prop('disabled', false);
+                                stopBtn.prop('disabled', true);
+                            } else {
+                                startBtn.prop('disabled', false);
+                                stopBtn.prop('disabled', false);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
     $('.btn-action').click(function() {
         const btn = $(this);
         const card = btn.closest('.server-card');
@@ -20,11 +64,12 @@ $(document).ready(function() {
             data: JSON.stringify({ signal: action, ownerId: ownerId }),
             success: function(response) {
                 if (response.success) {
-                    // Ideally we would poll for status update, but for now let's just reload or show success
-                    // Reloading page to get fresh state is easiest for this simple app
+                    // Wait a bit then update status manually or let poller handle it
                     setTimeout(() => {
-                        location.reload();
-                    }, 2000); // Wait a bit for the server to process the signal
+                        updateServerStatus();
+                        // Reset button state (it will be updated by poller anyway, but good to reset text)
+                        btn.html(originalHtml);
+                    }, 2000); 
                 } else {
                     alert('Failed to perform action.');
                     card.find('.btn-action').prop('disabled', false);

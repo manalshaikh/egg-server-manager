@@ -18,15 +18,35 @@ async function getServers(url, key) {
     if (!api) return [];
     
     try {
-        const response = await api.get('/');
-        return response.data.data.map(server => ({
-            id: server.attributes.identifier,
-            name: server.attributes.name,
-            node: server.attributes.node,
-            status: server.attributes.status || 'unknown',
-            limits: server.attributes.limits,
-            uuid: server.attributes.uuid
-        }));
+        const response = await api.get('/?include=allocations');
+        return response.data.data.map(server => {
+            let ip = 'Unknown';
+            let port = '';
+            if (server.attributes.relationships && server.attributes.relationships.allocations) {
+                const defaultAllocation = server.attributes.relationships.allocations.data.find(a => a.attributes.is_default) || server.attributes.relationships.allocations.data[0];
+                if (defaultAllocation) {
+                    ip = defaultAllocation.attributes.ip;
+                    port = defaultAllocation.attributes.port;
+                }
+            }
+            
+            // If IP is an alias (like 0.0.0.0), we might want to use the node's FQDN if available, but client API doesn't always give node IP easily without extra calls.
+            // However, usually the allocation IP is what we want.
+            if (server.attributes.sftp_details && server.attributes.sftp_details.ip) {
+                 // Fallback or alternative if allocation is weird, but allocation is usually correct for game connection.
+            }
+
+            return {
+                id: server.attributes.identifier,
+                name: server.attributes.name,
+                node: server.attributes.node,
+                status: server.attributes.status || 'unknown',
+                limits: server.attributes.limits,
+                uuid: server.attributes.uuid,
+                ip: ip,
+                port: port
+            };
+        });
     } catch (error) {
         console.error(`Error fetching servers from ${url}:`, error.message);
         return [];

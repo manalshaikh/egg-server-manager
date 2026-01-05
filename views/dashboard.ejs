@@ -17,6 +17,7 @@
                     </div>
                     <div class="card-body">
                         <p class="card-text">
+                            <strong>IP:</strong> <%= server.ip %>:<%= server.port %><br>
                             <strong>Status:</strong> 
                             <span class="server-status badge 
                                 <%= server.state === 'running' ? 'bg-success' : 

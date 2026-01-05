@@ -12,6 +12,7 @@ const sequelize = new Sequelize({
 const User = require('./models/User')(sequelize);
 const BannedIp = require('./models/BannedIp')(sequelize);
 const LoginAttempt = require('./models/LoginAttempt')(sequelize);
+const ActionLog = require('./models/ActionLog')(sequelize);
 
 async function initDb() {
     // alter: true updates the schema to match the models without losing data
@@ -32,4 +33,4 @@ async function initDb() {
     }
 }
 
-module.exports = { sequelize, User, BannedIp, LoginAttempt, initDb };
+module.exports = { sequelize, User, BannedIp, LoginAttempt, ActionLog, initDb };

@@ -5,7 +5,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 const ptero = require('./ptero');
-const { User, BannedIp, LoginAttempt, initDb } = require('./db');
+const { User, BannedIp, LoginAttempt, ActionLog, initDb } = require('./db');
 const { Op } = require('sequelize');
 require('dotenv').config();
 
@@ -105,6 +105,15 @@ app.post('/login', async (req, res) => {
     if (user && await bcrypt.compare(password, user.password)) {
         // Clear login attempts on success
         await LoginAttempt.destroy({ where: { ip } });
+        
+        // Log successful login
+        await ActionLog.create({
+            username: user.username,
+            ip: ip,
+            action: 'login',
+            details: 'Successful login'
+        });
+
         req.session.userId = user.id;
         res.redirect('/dashboard');
     } else {
@@ -191,7 +200,45 @@ app.post('/api/server/:id/power', isAuthenticated, async (req, res) => {
     }
 
     const success = await ptero.setPowerState(targetUser.ptero_url, targetUser.ptero_api_key, id, signal);
+    
+    // Log server operation
+    await ActionLog.create({
+        username: currentUser.username,
+        ip: req.ip,
+        action: 'server_power',
+        details: `Server ID: ${id}, Signal: ${signal}, Success: ${success}`
+    });
+
     res.json({ success });
+});
+
+app.get('/api/servers/status', isAuthenticated, async (req, res) => {
+    const currentUser = await User.findByPk(req.session.userId);
+    let allServers = [];
+
+    if (currentUser.role === 'admin') {
+        const users = await User.findAll();
+        for (const user of users) {
+            if (user.ptero_url && user.ptero_api_key) {
+                const servers = await ptero.getServers(user.ptero_url, user.ptero_api_key);
+                const serversWithState = await Promise.all(servers.map(async (server) => {
+                    const state = await ptero.getServerState(user.ptero_url, user.ptero_api_key, server.id);
+                    return { id: server.id, state };
+                }));
+                allServers = allServers.concat(serversWithState);
+            }
+        }
+    } else {
+        if (currentUser.ptero_url && currentUser.ptero_api_key) {
+            const servers = await ptero.getServers(currentUser.ptero_url, currentUser.ptero_api_key);
+            const serversWithState = await Promise.all(servers.map(async (server) => {
+                const state = await ptero.getServerState(currentUser.ptero_url, currentUser.ptero_api_key, server.id);
+                return { id: server.id, state };
+            }));
+            allServers = serversWithState;
+        }
+    }
+    res.json(allServers);
 });
 
 app.get('/profile', isAuthenticated, async (req, res) => {
@@ -242,6 +289,14 @@ app.post('/admin/users', isAdmin, async (req, res) => {
     } catch (error) {
         res.status(400).send('Error creating user: ' + error.message);
     }
+});
+
+app.get('/admin/logs', isAdmin, async (req, res) => {
+    const logs = await ActionLog.findAll({
+        order: [['timestamp', 'DESC']],
+        limit: 100
+    });
+    res.render('admin_logs', { logs });
 });
 
 app.get('/admin/bans', isAdmin, async (req, res) => {
