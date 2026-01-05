@@ -82,6 +82,8 @@ $(document).ready(function() {
                 btn.html(originalHtml);
             }
         });
+    });
+
     $('#consoleModal').on('show.bs.modal', function (event) {
         const button = $(event.relatedTarget);
         const serverId = button.data('server-id');
