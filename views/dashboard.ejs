@@ -105,10 +105,19 @@
                         <i class="fas fa-sync-alt me-2"></i> Refresh Logs
                     </button>
                 </div>
-                <div id="logsContainer" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                <div id="logsContainer" class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
                     <div class="text-center text-muted">
                         <i class="fas fa-spinner fa-spin me-2"></i> Loading logs...
                     </div>
+                </div>
+                <div class="mt-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="consoleCommand" placeholder="Enter console command..." style="font-family: 'Courier New', monospace;">
+                        <button class="btn btn-success" type="button" id="sendCommandBtn">
+                            <i class="fas fa-paper-plane me-2"></i> Send
+                        </button>
+                    </div>
+                    <small class="text-muted mt-1 d-block">Type commands to send to the server console</small>
                 </div>
             </div>
             <div class="modal-footer">

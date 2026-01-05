@@ -203,46 +203,18 @@ async function writeFile(url, key, serverId, file, content) {
 }
 
 async function getConsoleLogs(url, key, serverId) {
-    const clientApi = getClient(url, key);
-    if (!clientApi) return null;
+    const api = getClient(url, key);
+    if (!api) return null;
 
     try {
-        console.log(`Attempting client API console for server ${serverId}`);
-        console.log('Client API base URL:', url);
-        console.log('Full console endpoint:', `${url}/api/client/servers/${serverId}/console`);
+        console.log(`Getting console websocket details for server ${serverId}`);
+        const response = await api.get(`/servers/${serverId}/console`);
+        console.log('Console websocket response:', response.data);
 
-        const response = await clientApi.get(`/servers/${serverId}/console`);
-        console.log('Console API response:', response.data);
-
-        // Return websocket connection details
+        // Return websocket connection details for real-time streaming
         return response.data;
     } catch (error) {
-        console.error(`Client API console failed for ${serverId}:`, error.message);
-
-        // Try application API as fallback
-        console.log('Trying application API logs endpoint...');
-        try {
-            const appApi = getApplicationClient(url, key);
-            if (!appApi) {
-                throw new Error('Cannot create application API client');
-            }
-
-            console.log('Application API endpoint:', `${url}/api/application/servers/${serverId}/logs`);
-            const appResponse = await appApi.get(`/servers/${serverId}/logs`);
-            console.log('Application logs response:', appResponse.data);
-
-            // If we get logs data, return it
-            if (appResponse.data && appResponse.data.data) {
-                return { logs: appResponse.data.data };
-            } else if (appResponse.data) {
-                return { logs: appResponse.data };
-            }
-
-        } catch (appError) {
-            console.error('Application API also failed:', appError.message);
-        }
-
-        // If both APIs fail, return error information
+        console.error(`Error getting console details for ${serverId}:`, error.message);
         return {
             error: true,
             message: error.message,

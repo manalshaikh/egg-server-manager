@@ -213,7 +213,41 @@ app.post('/api/server/:id/power', isAuthenticated, async (req, res) => {
     res.json({ success });
 });
 
-app.get('/api/servers/status', isAuthenticated, async (req, res) => {
+app.get('/api/server/:id/logs', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const ownerId = req.query.ownerId;
+    
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const logs = await ptero.getConsoleLogs(targetUser.ptero_url, targetUser.ptero_api_key, id);
+    
+    if (logs && !logs.error) {
+        await ActionLog.create({
+            username: currentUser.username,
+            ip: req.ip,
+            action: 'view_console',
+            details: `Viewed console logs for server ${id}`
+        });
+        res.json({ success: true, logs });
+    } else {
+        res.status(logs?.status || 500).json({ success: false, logs });
+    }
+});
+
+app.get('/api/server/:id/files', isAuthenticated, async (req, res) => {
     const currentUser = await User.findByPk(req.session.userId);
     let allServers = [];
 

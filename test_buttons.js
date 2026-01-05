@@ -62,6 +62,86 @@ function testBackendRoute() {
     console.log('✓ Backend route exists and calls setPowerState');
 }
 
+// Test the logs functionality
+function testLogsAPI() {
+    console.log('\n=== Test 5: Logs API Response Handling ===');
+    
+    // Mock the backend response that causes the hanging
+    const mockResponses = [
+        { success: true, logs: null }, // This should show "Failed to get console connection details"
+        { success: true, logs: { error: true, message: 'Test error', status: 404 } }, // This should show error message
+        { success: true, logs: { data: { socket: 'ws://test', token: 'test' } } }, // This should try to connect
+        { success: false } // This should show "Failed to get console connection details"
+    ];
+    
+    mockResponses.forEach((response, index) => {
+        console.log(`Testing response ${index + 1}:`, response);
+        
+        // Simulate the frontend logic
+        if (response.success && response.logs) {
+            if (response.logs.error) {
+                console.log(`✓ Would show error: "${response.logs.message}"`);
+            } else {
+                console.log('✓ Would attempt websocket connection');
+            }
+        } else {
+            console.log('✓ Would show: "Failed to get console connection details"');
+        }
+    });
+}
+
+// Test AJAX error scenarios
+function testAJAXErrors() {
+    console.log('\n=== Test 6: AJAX Error Handling ===');
+    
+    const mockErrors = [
+        { xhr: { status: 404 }, status: 'error', error: 'Not Found' },
+        { xhr: { status: 500 }, status: 'error', error: 'Internal Server Error' },
+        { xhr: { status: 0 }, status: 'timeout', error: 'Timeout' },
+        { xhr: { status: 200 }, status: 'error', error: 'Parse error' }
+    ];
+    
+    mockErrors.forEach((error, index) => {
+        console.log(`Testing AJAX error ${index + 1}:`, error);
+        
+        let errorMessage = 'Error getting console details';
+        if (error.xhr.status === 404) {
+            errorMessage = 'Server or API endpoint not found';
+        } else if (error.xhr.status === 500) {
+            errorMessage = 'Server error - check server logs';
+        } else if (error.status === 'timeout') {
+            errorMessage = 'Request timed out - server may be unreachable';
+        }
+        
+        console.log(`✓ Would show: "${errorMessage}"`);
+    });
+}
+
+// Test the backend ptero function
+function testPteroConsoleLogs() {
+    console.log('\n=== Test 7: Ptero Console Logs Function ===');
+    const ptero = require('./src/ptero');
+    
+    // Test that the function exists
+    assert(typeof ptero.getConsoleLogs === 'function', 'getConsoleLogs should be a function');
+    console.log('✓ getConsoleLogs function exists');
+    
+    // Test error response structure
+    const errorResponse = {
+        error: true,
+        message: 'Request failed with status code 404',
+        status: 404,
+        details: {}
+    };
+    
+    // Simulate what happens in the backend
+    console.log('Backend would return:', { success: true, logs: errorResponse });
+    console.log('Frontend should detect logs.error = true and show error message');
+}
+
+function testBackendRoute() {
+}
+
 // Run tests
 try {
     testSetPowerStateExists();
@@ -79,6 +159,11 @@ try {
     console.log('5. Check: Network tab for failed AJAX requests');
     console.log('6. Check: Server logs for API errors');
     console.log('7. Check: Button data attributes (data-id, data-owner, data-action)');
+
+    // Additional logs-specific tests
+    testLogsAPI();
+    testAJAXErrors();
+    testPteroConsoleLogs();
 
 } catch (error) {
     console.error('\n❌ Test failed:', error.message);

@@ -151,16 +151,12 @@ $(document).ready(function() {
                         console.log('API returned error:', response.logs);
                         logsContainer.html(`<div class="text-danger">Failed to connect to console: ${response.logs.message || 'Unknown error'}</div>`);
                         if (response.logs.status === 404) {
-                            logsContainer.append('<div class="text-muted mt-2">This might mean the server is not accessible or the console feature is not available.</div>');
+                            logsContainer.append('<div class="text-muted mt-2">Console access may not be available for this server.</div>');
                         }
-                    } else if (response.logs.logs) {
-                        // Application API returned logs directly
-                        console.log('Received logs from application API');
-                        displayLogs(response.logs.logs);
                     } else {
-                        // Client API returned websocket details
-                        console.log('Connecting to websocket...');
-                        connectToConsole(response.logs, logsContainer);
+                        // Connect to websocket for real-time console streaming
+                        console.log('Connecting to console websocket...');
+                        connectToConsoleWebSocket(response.logs, logsContainer);
                     }
                 } else {
                     console.log('Response missing success or logs:', response);
@@ -255,31 +251,168 @@ $(document).ready(function() {
         }
     }
 
-    function displayLogs(logLines) {
-        const logsContainer = $('#logsContainer');
+    function connectToConsoleWebSocket(wsDetails, logsContainer) {
+        if (!wsDetails || !wsDetails.socket || !wsDetails.token) {
+            logsContainer.html('<div class="text-danger">Invalid websocket details received from server.</div>');
+            return;
+        }
+
+        console.log('WebSocket details:', wsDetails);
+
+        // Create websocket connection
+        const ws = new WebSocket(wsDetails.socket);
+
+        // Connection opened
+        ws.onopen = function(event) {
+            console.log('WebSocket connection opened');
+            logsContainer.html('<div class="text-success">Connected to console. Loading logs...</div>');
+
+            // Authenticate with the token
+            ws.send(JSON.stringify({
+                event: 'auth',
+                args: [wsDetails.token]
+            }));
+        };
+
+        // Listen for messages
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message:', data);
+
+                if (data.event === 'auth success') {
+                    console.log('Authentication successful');
+                    logsContainer.html('<div class="text-success">Console connected. Waiting for output...</div>');
+
+                    // Request initial console output
+                    ws.send(JSON.stringify({
+                        event: 'send logs',
+                        args: [null]
+                    }));
+
+                } else if (data.event === 'console output') {
+                    // Display console output
+                    if (data.args && data.args[0]) {
+                        displayConsoleOutput(data.args[0], logsContainer);
+                    }
+
+                } else if (data.event === 'status') {
+                    console.log('Server status:', data.args[0]);
+
+                } else if (data.event === 'token expiring') {
+                    console.log('Token expiring, reconnecting...');
+                    // Token is expiring, we might need to refresh
+
+                } else if (data.event === 'token expired') {
+                    console.log('Token expired');
+                    logsContainer.html('<div class="text-warning">Console session expired. Please refresh the page.</div>');
+                    ws.close();
+                }
+
+            } catch (e) {
+                console.error('Error parsing websocket message:', e);
+            }
+        };
+
+        // Connection closed
+        ws.onclose = function(event) {
+            console.log('WebSocket connection closed:', event.code, event.reason);
+            if (event.code !== 1000) { // Not a normal closure
+                logsContainer.append('<div class="text-warning mt-2">Console connection lost. Attempting to reconnect...</div>');
+                // Could implement reconnection logic here
+            }
+        };
+
+        // Connection error
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            logsContainer.html('<div class="text-danger">Failed to connect to console websocket.</div>');
+        };
+
+        // Store websocket reference for command sending
+        logsContainer.data('websocket', ws);
+    }
+
+    function displayConsoleOutput(output, logsContainer) {
+        // Get current content or initialize empty array
+        let logLines = logsContainer.data('logLines') || [];
+        
+        // Split output by newlines and add each line
+        const newLines = output.split('\n');
+        logLines = logLines.concat(newLines);
+        
+        // Keep only last 200 lines to prevent memory issues
+        if (logLines.length > 200) {
+            logLines = logLines.slice(-200);
+        }
+        
+        // Store updated log lines
+        logsContainer.data('logLines', logLines);
+        
+        // Display the logs
+        displayLogs(logLines, logsContainer);
+    }
+
+    function displayLogs(logLines, container = $('#logsContainer')) {
         if (!logLines || logLines.length === 0) {
-            logsContainer.html('<div class="text-muted">No logs received yet...</div>');
+            container.html('<div class="text-muted">No logs received yet...</div>');
             return;
         }
         
         let html = '';
         logLines.forEach(log => {
-            // Escape HTML characters for security
-            const escapedLog = String(log).replace(/[&<>"']/g, function(match) {
-                const escapeMap = {
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;'
-                };
-                return escapeMap[match];
-            });
-            html += '<div class="log-line">' + escapedLog + '</div>';
+            if (log.trim()) { // Skip empty lines
+                // Escape HTML characters for security
+                const escapedLog = String(log).replace(/[&<>"']/g, function(match) {
+                    const escapeMap = {
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        '"': '&quot;',
+                        "'": '&#39;'
+                    };
+                    return escapeMap[match];
+                });
+                html += '<div class="log-line">' + escapedLog + '</div>';
+            }
         });
         
-        logsContainer.html(html);
+        container.html(html);
         // Auto-scroll to bottom
-        logsContainer.scrollTop(logsContainer[0].scrollHeight);
+        container.scrollTop(container[0].scrollHeight);
     }
+
+    $('#sendCommandBtn').click(function() {
+        const command = $('#consoleCommand').val().trim();
+        if (!command) return;
+        
+        const logsContainer = $('#logsContainer');
+        const ws = logsContainer.data('websocket');
+        
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log('Sending command:', command);
+            ws.send(JSON.stringify({
+                event: 'send command',
+                args: [command]
+            }));
+            
+            // Add command to display with a prompt
+            const logLines = logsContainer.data('logLines') || [];
+            logLines.push(`> ${command}`);
+            logsContainer.data('logLines', logLines);
+            displayLogs(logLines, logsContainer);
+            
+            // Clear the input
+            $('#consoleCommand').val('');
+        } else {
+            alert('Console connection is not active. Please refresh the logs.');
+        }
+    });
+
+    // Allow Enter key to send commands
+    $('#consoleCommand').keypress(function(e) {
+        if (e.which === 13) { // Enter key
+            $('#sendCommandBtn').click();
+        }
+    });
 });
