@@ -188,3 +188,16 @@ async function writeFile(url, key, serverId, file, content) {
         return false;
     }
 }
+
+module.exports = {
+    getServers,
+    getServerState,
+    sendCommand,
+    getResources,
+    listBackups,
+    createBackup,
+    deleteBackup,
+    listFiles,
+    getFileContent,
+    writeFile
+};
