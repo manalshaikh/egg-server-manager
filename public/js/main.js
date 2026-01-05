@@ -129,29 +129,58 @@ $(document).ready(function() {
         
         console.log('Loading logs for server:', serverId, 'owner:', ownerId);
         
+        // Set a fallback timeout in case AJAX hangs completely
+        const timeoutId = setTimeout(() => {
+            console.error('AJAX request appears to be hanging - no response after 15 seconds');
+            logsContainer.html('<div class="text-danger">Request hanging - check network connection, CORS, or server status</div>');
+        }, 15000);
+        
         // First get websocket connection details
         $.ajax({
             url: `/api/server/${serverId}/logs?ownerId=${ownerId}`,
             method: 'GET',
-            success: function(response) {
+            timeout: 10000, // 10 second timeout
+            success: function(response, status, xhr) {
+                clearTimeout(timeoutId); // Clear the fallback timeout
                 console.log('Console websocket response:', response);
+                console.log('Response status:', xhr.status);
+                
                 if (response.success && response.logs) {
                     if (response.logs.error) {
                         // Handle API error
-                        logsContainer.html(`<div class="text-danger">Failed to connect to console: ${response.logs.message}</div>`);
+                        console.log('API returned error:', response.logs);
+                        logsContainer.html(`<div class="text-danger">Failed to connect to console: ${response.logs.message || 'Unknown error'}</div>`);
                         if (response.logs.status === 404) {
                             logsContainer.append('<div class="text-muted mt-2">This might mean the server is not accessible or the console feature is not available.</div>');
                         }
                     } else {
+                        console.log('Connecting to websocket...');
                         connectToConsole(response.logs, logsContainer);
                     }
                 } else {
+                    console.log('Response missing success or logs:', response);
                     logsContainer.html('<div class="text-danger">Failed to get console connection details</div>');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('AJAX error:', xhr, status, error);
-                logsContainer.html('<div class="text-danger">Error getting console details: ' + error + '</div>');
+                clearTimeout(timeoutId); // Clear the fallback timeout
+                console.error('AJAX error:', {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    error: error
+                });
+                
+                let errorMessage = 'Error getting console details';
+                if (xhr.status === 404) {
+                    errorMessage = 'Server or API endpoint not found';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error - check server logs';
+                } else if (status === 'timeout') {
+                    errorMessage = 'Request timed out - server may be unreachable';
+                }
+                
+                logsContainer.html(`<div class="text-danger">${errorMessage}</div>`);
             }
         });
     }
