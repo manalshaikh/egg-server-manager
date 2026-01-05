@@ -175,6 +175,11 @@ body {
     background: rgba(0, 0, 0, 0.2);
     border-bottom: 1px solid var(--glass-border);
     padding: 1.25rem 1.5rem;
+    color: var(--text-main) !important;
+}
+
+.card-title {
+    color: var(--text-main) !important;
 }
 
 .card-body {
