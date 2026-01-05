@@ -136,7 +136,15 @@ $(document).ready(function() {
             success: function(response) {
                 console.log('Console websocket response:', response);
                 if (response.success && response.logs) {
-                    connectToConsole(response.logs, logsContainer);
+                    if (response.logs.error) {
+                        // Handle API error
+                        logsContainer.html(`<div class="text-danger">Failed to connect to console: ${response.logs.message}</div>`);
+                        if (response.logs.status === 404) {
+                            logsContainer.append('<div class="text-muted mt-2">This might mean the server is not accessible or the console feature is not available.</div>');
+                        }
+                    } else {
+                        connectToConsole(response.logs, logsContainer);
+                    }
                 } else {
                     logsContainer.html('<div class="text-danger">Failed to get console connection details</div>');
                 }

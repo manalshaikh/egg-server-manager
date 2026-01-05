@@ -194,14 +194,23 @@ async function getConsoleLogs(url, key, serverId) {
     if (!api) return null;
 
     try {
+        console.log(`Attempting to get console for server ${serverId}`);
         const response = await api.get(`/servers/${serverId}/console`);
         console.log('Console API response:', response.data);
-        
+
         // Return websocket connection details
         return response.data;
     } catch (error) {
         console.error(`Error getting console websocket details for ${serverId}:`, error.message);
-        return null;
+        console.error('Full error:', error.response?.data || error);
+
+        // Return error information instead of null
+        return {
+            error: true,
+            message: error.message,
+            status: error.response?.status,
+            details: error.response?.data
+        };
     }
 }
 
