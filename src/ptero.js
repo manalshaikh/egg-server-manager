@@ -205,6 +205,19 @@ async function getConsoleLogs(url, key, serverId) {
     }
 }
 
+async function setPowerState(url, key, serverId, signal) {
+    const api = getClient(url, key);
+    if (!api) return false;
+
+    try {
+        await api.post(`/servers/${serverId}/power`, { signal: signal });
+        return true;
+    } catch (error) {
+        console.error(`Error setting power state for ${serverId} to ${signal}:`, error.message);
+        return false;
+    }
+}
+
 module.exports = {
     getServers,
     getServerState,
@@ -216,5 +229,6 @@ module.exports = {
     listFiles,
     getFileContent,
     writeFile,
-    getConsoleLogs
+    getConsoleLogs,
+    setPowerState
 };
