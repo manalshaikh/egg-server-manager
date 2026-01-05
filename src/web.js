@@ -354,6 +354,32 @@ app.post('/api/server/:id/command', isAuthenticated, async (req, res) => {
     }
 });
 
+app.get('/api/server/:id/logs', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const currentUser = await User.findByPk(req.session.userId);
+    let targetUser = currentUser;
+    const ownerId = req.query.ownerId;
+    
+    if (ownerId) {
+        if (currentUser.role === 'admin') {
+            targetUser = await User.findByPk(ownerId);
+        } else if (parseInt(ownerId) !== currentUser.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+    }
+
+    if (!targetUser || !targetUser.ptero_url || !targetUser.ptero_api_key) {
+        return res.status(400).json({ success: false, message: 'No API credentials' });
+    }
+
+    const logs = await ptero.getConsoleLogs(targetUser.ptero_url, targetUser.ptero_api_key, id);
+    if (logs) {
+        res.json({ success: true, logs: logs });
+    } else {
+        res.status(500).json({ success: false, message: 'Failed to get logs' });
+    }
+});
+
 app.get('/server/:id/backups', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const currentUser = await User.findByPk(req.session.userId);

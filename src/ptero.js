@@ -189,6 +189,19 @@ async function writeFile(url, key, serverId, file, content) {
     }
 }
 
+async function getConsoleLogs(url, key, serverId) {
+    const api = getClient(url, key);
+    if (!api) return null;
+
+    try {
+        const response = await api.get(`/servers/${serverId}/console`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error getting console logs for ${serverId}:`, error.message);
+        return null;
+    }
+}
+
 module.exports = {
     getServers,
     getServerState,
@@ -199,5 +212,6 @@ module.exports = {
     deleteBackup,
     listFiles,
     getFileContent,
-    writeFile
+    writeFile,
+    getConsoleLogs
 };

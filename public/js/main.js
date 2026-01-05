@@ -91,41 +91,62 @@ $(document).ready(function() {
         modal.data('server-id', serverId);
         modal.data('owner-id', ownerId);
         
-        modal.find('#consoleCommand').val('');
+        loadLogs(serverId, ownerId);
     });
 
-    $('#sendCommandBtn').click(function() {
+    $('#refreshLogsBtn').click(function() {
         const modal = $('#consoleModal');
         const serverId = modal.data('server-id');
         const ownerId = modal.data('owner-id');
-        const command = $('#consoleCommand').val().trim();
         
-        if (!command) {
-            alert('Please enter a command.');
-            return;
-        }
-        
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+        loadLogs(serverId, ownerId);
+    });
+
+    function loadLogs(serverId, ownerId) {
+        const logsContainer = $('#logsContainer');
+        logsContainer.html('<div class="text-center text-muted"><i class="fas fa-spinner fa-spin me-2"></i> Loading logs...</div>');
         
         $.ajax({
-            url: `/api/server/${serverId}/command`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ command: command, ownerId: ownerId }),
+            url: `/api/server/${serverId}/logs?ownerId=${ownerId}`,
+            method: 'GET',
             success: function(response) {
                 if (response.success) {
-                    alert('Command sent successfully!');
-                    modal.modal('hide');
+                    displayLogs(response.logs);
                 } else {
-                    alert('Failed to send command: ' + response.message);
+                    logsContainer.html('<div class="text-danger">Failed to load logs: ' + response.message + '</div>');
                 }
             },
             error: function() {
-                alert('Error sending command.');
-            },
-            complete: function() {
-                $('#sendCommandBtn').prop('disabled', false).html('Send Command');
+                logsContainer.html('<div class="text-danger">Error loading logs.</div>');
             }
         });
-    });
+    }
+
+    function displayLogs(logs) {
+        const logsContainer = $('#logsContainer');
+        if (!logs || logs.length === 0) {
+            logsContainer.html('<div class="text-muted">No logs available.</div>');
+            return;
+        }
+        
+        let html = '';
+        logs.forEach(log => {
+            // Escape HTML characters for security
+            const escapedLog = log.replace(/[&<>"']/g, function(match) {
+                const escapeMap = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                };
+                return escapeMap[match];
+            });
+            html += '<div class="log-line">' + escapedLog + '</div>';
+        });
+        
+        logsContainer.html(html);
+        // Auto-scroll to bottom
+        logsContainer.scrollTop(logsContainer[0].scrollHeight);
+    }
 });

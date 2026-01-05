@@ -68,7 +68,7 @@
                             </div>
                             <div class="btn-group w-100" role="group">
                                 <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#consoleModal" data-server-id="<%= server.id %>" data-owner-id="<%= server.ownerId %>">
-                                    <i class="fas fa-terminal"></i> Console
+                                    <i class="fas fa-list"></i> Logs
                                 </button>
                                 <a href="/server/<%= server.id %>/backups?ownerId=<%= server.ownerId %>" class="btn btn-secondary btn-sm">
                                     <i class="fas fa-save"></i> Backups
@@ -93,23 +93,26 @@
 
 <!-- Console Modal -->
 <div class="modal fade" id="consoleModal" tabindex="-1" aria-labelledby="consoleModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="consoleModalLabel">Send Console Command</h5>
+                <h5 class="modal-title" id="consoleModalLabel">Server Logs</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="consoleForm">
-                    <div class="mb-3">
-                        <label for="consoleCommand" class="form-label">Command</label>
-                        <input type="text" class="form-control" id="consoleCommand" placeholder="Enter command..." required>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-primary btn-sm" id="refreshLogsBtn">
+                        <i class="fas fa-sync-alt me-2"></i> Refresh Logs
+                    </button>
+                </div>
+                <div id="logsContainer" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i> Loading logs...
                     </div>
-                </form>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="sendCommandBtn">Send Command</button>
             </div>
         </div>
     </div>
